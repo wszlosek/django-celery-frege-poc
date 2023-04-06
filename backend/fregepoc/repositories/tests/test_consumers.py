@@ -55,7 +55,7 @@ class TestLiveStatusConsumer:
         actual_data = response["data"]
         assert expected_data == actual_data
         assert await communicator.receive_nothing()
-        await communicator.disconnect()
+        # await communicator.disconnect()
 
     async def test_subscribe_to_repository_file_activity(self, api_key):
         await self._test_event_api(
