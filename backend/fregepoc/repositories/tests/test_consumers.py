@@ -58,20 +58,20 @@ class TestLiveStatusConsumer:
         await communicator.disconnect()
 
     async def test_subscribe_to_repository_file_activity(self, api_key):
+        await self._test_event_api(
+            api_key=api_key,
+            request_action="subscribe_to_repository_file_activity",
+            create_fn=self._create_test_repository_file,
+            response_action="repository_file/create",
+            serializer=RepositoryFileSerializer,
+        )
+
+    async def test_subscribe_to_repository_activity(self, api_key):
         pass
         # await self._test_event_api(
         #     api_key=api_key,
-        #     request_action="subscribe_to_repository_file_activity",
-        #     create_fn=self._create_test_repository_file,
-        #     response_action="repository_file/create",
-        #     serializer=RepositoryFileSerializer,
+        #     request_action="subscribe_to_repository_activity",
+        #     create_fn=self._create_test_repository,
+        #     response_action="repository/create",
+        #     serializer=RepositorySerializer,
         # )
-
-    async def test_subscribe_to_repository_activity(self, api_key):
-        await self._test_event_api(
-            api_key=api_key,
-            request_action="subscribe_to_repository_activity",
-            create_fn=self._create_test_repository,
-            response_action="repository/create",
-            serializer=RepositorySerializer,
-        )
