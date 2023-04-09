@@ -14,6 +14,12 @@ from fregepoc.repositories.serializers import (
 )
 
 
+def _get_event_api_request(action, data):
+    return {
+        "type": "websocket.receive",
+        "text": '{"action": "%s", "data": %s}' % (action, data),
+    }
+
 @pytest.fixture()
 def api_key():
     _, key = APIKey.objects.create_key(name="test-key")
@@ -33,43 +39,46 @@ class TestLiveStatusConsumer:
     def _create_test_repository_file():
         return RepositoryFileFactory()
 
+
     @staticmethod
-    async def _test_event_api(
-        api_key, request_action, create_fn, response_action, serializer
+    def test_event_api(
+        api_key,
+        request_action,
+        create_fn,
+        response_action,
+        serializer,
     ):
-        communicator = WebsocketCommunicator(
-            LiveStatusConsumer.as_asgi(), "/ws/"
-        )
-        connected, _ = await communicator.connect()
-        assert connected
-        assert await communicator.receive_json_from() == {
-            "type": "websocket.accept"
-        }
-        await communicator.send_json_to(
-            {"type": "websocket.send", "text": api_key}
-        )
-        assert await communicator.receive_json_from() == {
-            "type": "websocket.send",
-            "text": "OK",
-        }
-        obj = await create_fn()
-        await communicator.send_json_to(
-            {
-                "type": "websocket.send",
-                "text": serializer(obj).data,
-                "action": request_action,
-            }
-        )
-        assert await communicator.receive_json_from() == {
-            "type": "websocket.send",
-            "text": "OK",
-            "action": response_action,
-        }
-        await communicator.disconnect()
+        async def _test_event_api():
+            communicator = WebsocketCommunicator(
+                LiveStatusConsumer, "/ws/"
+            )
+            connected, _ = await communicator.connect()
+            assert connected
+
+            await communicator.send_json_to(
+                {
+                    "action": "authenticate",
+                    "data": {"api_key": api_key},
+                }
+            )
+            response = await communicator.receive_json_from()
+            assert response["action"] == "authenticated"
+            assert response["data"] is True
+
+            await communicator.send_json_to(
+                _get_event_api_request(
+                    request_action, serializer(create_fn()).data
+                )
+            )
+            response = await communicator.receive_json_from()
+            assert response["action"] == response_action
+            assert response["data"] == serializer(create_fn()).data
+
+            await communicator.disconnect()
+
+        return _test_event_api
 
     async def test_subscribe_to_repository_file_activity(self, api_key):
-        # tu blad
-        pass
         await self._test_event_api(
             api_key=api_key,
             request_action="subscribe_to_repository_file_activity",
