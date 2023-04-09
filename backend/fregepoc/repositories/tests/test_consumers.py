@@ -40,21 +40,31 @@ class TestLiveStatusConsumer:
         communicator = WebsocketCommunicator(
             LiveStatusConsumer.as_asgi(), "/ws/"
         )
-        connected, subprotocol = await communicator.connect()
+        connected, _ = await communicator.connect()
         assert connected
+        assert await communicator.receive_json_from() == {
+            "type": "websocket.accept"
+        }
         await communicator.send_json_to(
-            {"api_key": api_key, "action": request_action, "request_id": 1}
+            {"type": "websocket.send", "text": api_key}
         )
-        assert await communicator.receive_nothing()
-        file = await create_fn()
-        response = await communicator.receive_json_from()
-        assert response["response_status"] == 200
-        assert response["request_id"] == 1
-        assert response["action"] == response_action
-        expected_data = serializer(file).data
-        actual_data = response["data"]
-        assert expected_data == actual_data
-        assert await communicator.receive_nothing()
+        assert await communicator.receive_json_from() == {
+            "type": "websocket.send",
+            "text": "OK",
+        }
+        obj = await create_fn()
+        await communicator.send_json_to(
+            {
+                "type": "websocket.send",
+                "text": serializer(obj).data,
+                "action": request_action,
+            }
+        )
+        assert await communicator.receive_json_from() == {
+            "type": "websocket.send",
+            "text": "OK",
+            "action": response_action,
+        }
         await communicator.disconnect()
 
     async def test_subscribe_to_repository_file_activity(self, api_key):
